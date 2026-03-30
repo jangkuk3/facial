@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>안면마비 평가</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0c1017;--card:#151c28;--card2:#1a2332;--border:#253046;--blue:#38bdf8;--indigo:#818cf8;--green:#34d399;--red:#f87171;--orange:#fb923c;--yellow:#fbbf24;--lime:#a3e635;--text:#e8ecf2;--text2:#8b99ad;--text3:#576275;--r:14px}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Noto Sans KR',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden}
+.hdr{background:linear-gradient(135deg,#0f172a,#1e1b4b);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+.hdr-ico{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,var(--blue),var(--indigo));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.hdr h1{font-size:14px;font-weight:700;background:linear-gradient(90deg,var(--blue),var(--indigo));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hdr small{font-size:10px;color:var(--text3);display:block;margin-top:1px}
+.scr{display:none;padding:16px;max-width:480px;margin:0 auto}.scr.on{display:block}
+.mode-btn{width:100%;padding:18px 16px;margin-bottom:10px;background:var(--card);border:2px solid var(--border);border-radius:var(--r);color:var(--text);cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;transition:all .15s;font-family:inherit}
+.mode-btn:active{transform:scale(.98);border-color:var(--blue)}
+.mode-btn .mi{font-size:30px;flex-shrink:0}
+.mode-btn strong{font-size:15px;display:block}
+.mode-btn span{font-size:12px;color:var(--text2)}
+.cam{position:relative;width:100%;border-radius:var(--r);overflow:hidden;background:#000;aspect-ratio:3/4;max-height:52dvh;margin-bottom:10px}
+.cam video,.cam canvas{width:100%;height:100%;object-fit:cover;display:block}
+.cam canvas{position:absolute;inset:0;pointer-events:none}
+.badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);padding:3px 10px;border-radius:20px;font-size:10px;color:var(--green);display:flex;align-items:center;gap:5px}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:blink 1.4s infinite}
+.badge.no{color:var(--red)}.badge.no .dot{animation:none}
+@keyframes blink{50%{opacity:.3}}
+.flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.prog{display:flex;gap:4px;margin-bottom:12px}
+.prog i{flex:1;height:4px;border-radius:2px;background:var(--border);font-style:normal}
+.prog i.dn{background:var(--green)}.prog i.nw{background:var(--blue);animation:pls 1.3s infinite}
+@keyframes pls{50%{opacity:.35}}
+.sinfo{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.sinfo .lab{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blue);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px}
+.sinfo h2{font-size:18px;font-weight:900;margin-bottom:4px}
+.sinfo p{font-size:12px;color:var(--text2);line-height:1.5}
+.sinfo .hint{margin-top:8px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.15);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--blue);font-weight:500}
+.cap-btn{width:100%;padding:18px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--indigo));color:#fff;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;transition:transform .1s;display:flex;align-items:center;justify-content:center;gap:10px}
+.cap-btn:active{transform:scale(.96)}
+.cap-btn:disabled{opacity:.3;pointer-events:none}
+.cap-btn.bl{background:linear-gradient(135deg,var(--green),#059669)}
+.score-pop{position:fixed;inset:0;background:rgba(12,16,23,.92);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .2s}
+.score-pop.on{opacity:1;pointer-events:auto}
+.score-pop .sp-ico{font-size:48px;margin-bottom:8px}
+.score-pop .sp-tit{font-size:14px;color:var(--text2);margin-bottom:4px}
+.score-pop .sp-num{font-family:'JetBrains Mono',monospace;font-size:100px;font-weight:700;line-height:1;margin-bottom:4px;animation:popIn .4s cubic-bezier(.17,.67,.29,1.4)}
+@keyframes popIn{0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}
+.score-pop .sp-lab{font-size:16px;font-weight:600;margin-bottom:4px}
+.score-pop .sp-sym{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3);margin-bottom:24px}
+.sp-edit{display:flex;gap:8px;margin-bottom:6px}
+.sp-edit button{width:48px;height:48px;border-radius:12px;border:2px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;font-size:18px;font-weight:800;cursor:pointer;transition:all .15s}
+.sp-edit button.sel{border-color:var(--blue);background:rgba(56,189,248,.15);color:var(--blue);transform:scale(1.1)}
+.sp-edit button:active{transform:scale(.9)}
+.sp-elab{font-size:10px;color:var(--text3);margin-bottom:16px}
+.sp-next{padding:16px 48px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--indigo));color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.sp-next:active{transform:scale(.96)}
+/* Baseline popup */
+.bl-pop{position:fixed;inset:0;background:rgba(12,16,23,.92);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .2s;padding:20px}
+.bl-pop.on{opacity:1;pointer-events:auto}
+.bl-pop h3{font-size:18px;font-weight:900;margin-bottom:16px;color:var(--green)}
+.bl-tag{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;background:var(--card);border:1px solid var(--border);margin:4px;font-size:13px}
+.bl-tag .ico{font-size:18px}
+.bl-tags{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-bottom:24px}
+.rtotal{background:linear-gradient(135deg,var(--card),var(--card2));border:2px solid var(--border);border-radius:16px;padding:24px;text-align:center;margin-bottom:16px}
+.rtotal .rn{font-family:'JetBrains Mono',monospace;font-size:56px;font-weight:700}
+.rtotal .rm{font-size:16px;color:var(--text3)}
+.rtotal .rg{display:inline-block;padding:5px 16px;border-radius:16px;font-size:13px;font-weight:700;margin-top:10px}
+.rsec{margin-bottom:16px}.rsec h4{font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text2)}
+.ri{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.ri .rt{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.ri .rn2{font-size:13px;font-weight:600}
+.ri .rv{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700}
+.rbar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.rbar div{height:100%;border-radius:3px;transition:width .8s}
+.ri .rd{font-size:10px;color:var(--text3);margin-top:4px}
+.rtags{display:flex;gap:6px;flex-wrap:wrap}
+.rtags span{padding:4px 10px;border-radius:7px;font-size:11px;background:var(--card2);border:1px solid var(--border)}
+.radar-w{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:16px;text-align:center}
+.radar-w h4{font-size:12px;color:var(--text2);margin-bottom:10px}
+.radar-w canvas{max-width:260px;width:100%}
+.brow{display:flex;gap:8px;margin-top:10px}.brow>*{flex:1}
+.btn{padding:14px 20px;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;transition:transform .1s}
+.btn:active{transform:scale(.97)}
+.btn-p{background:linear-gradient(135deg,var(--blue),var(--indigo));color:#fff}
+.btn-s{background:var(--card2);color:var(--text);border:1px solid var(--border)}
+.btn-g{background:linear-gradient(135deg,var(--green),#059669);color:#fff}
+.btn-d{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+.disc{background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);border-radius:10px;padding:10px 12px;font-size:10px;color:var(--yellow);line-height:1.5;margin-top:12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.card h3{font-size:13px;font-weight:700;margin-bottom:8px}
+.card p{font-size:12px;color:var(--text2);line-height:1.5}
+.upload-a{border:2px dashed var(--border);border-radius:var(--r);padding:24px 16px;text-align:center;cursor:pointer;margin-bottom:10px}
+.upload-a:active{border-color:var(--blue)}
+.vid-ctrl{display:flex;gap:6px;justify-content:center;margin-bottom:10px}
+.loader{position:fixed;inset:0;background:rgba(12,16,23,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999}
+.loader.off{display:none}
+.spin{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.loader p{margin-top:14px;font-size:13px;color:var(--text2)}
+@media print{body{background:#fff;color:#000}.hdr{background:#fff}.hdr h1{-webkit-text-fill-color:#000}.btn,.cam,.vid-ctrl,.brow,.cap-btn{display:none!important}.card,.ri{background:#f8f8f8;border-color:#ddd}}
+</style>
+</head>
+<body>
+<div class="loader" id="ld"><div class="spin"></div><p id="ldm">Face Mesh 초기화 중...</p></div>
+
+<div class="hdr">
+  <div class="hdr-ico">🧠</div>
+  <div><h1>안면마비 평가</h1><small>Sunnybrook 기반 · 6탭 완료</small></div>
+</div>
+
+<!-- Score popup -->
+<div class="score-pop" id="pop">
+  <div class="sp-ico" id="pIco">😲</div>
+  <div class="sp-tit" id="pTit">-</div>
+  <div class="sp-num" id="pNum">5</div>
+  <div class="sp-lab" id="pLab">완전한 움직임</div>
+  <div class="sp-sym" id="pSym">대칭도 92%</div>
+  <div class="sp-edit" id="pEd">
+    <button onclick="eS(1)">1</button><button onclick="eS(2)">2</button><button onclick="eS(3)">3</button><button onclick="eS(4)">4</button><button onclick="eS(5)">5</button>
+  </div>
+  <div class="sp-elab">↑ 점수 수정 가능</div>
+  <button class="sp-next" id="pNxt" onclick="popOk()">다음 동작 →</button>
+</div>
+
+<!-- Baseline result popup -->
+<div class="bl-pop" id="blPop">
+  <h3>✅ Baseline 캡처 완료</h3>
+  <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Resting Symmetry 자동 분석 결과</div>
+  <div class="bl-tags" id="blTags"></div>
+  <button class="sp-next" onclick="blPopOk()">수의운동 평가 시작 →</button>
+</div>
+
+<!-- MODE -->
+<div class="scr on" id="S0">
+  <div class="card">
+    <h3>📋 완전 자동 평가</h3>
+    <p><strong style="color:var(--blue)">6번 탭</strong>으로 전체 평가 완료<br>
+    Baseline 1회 (Resting 자동분석) + 동작 5회 (즉시 채점)</p>
+  </div>
+  <button class="mode-btn" onclick="go('cam')"><span class="mi">📷</span><div><strong>카메라 모드</strong><span>전면카메라 실시간</span></div></button>
+  <button class="mode-btn" onclick="go('vid')"><span class="mi">🎬</span><div><strong>동영상 분석</strong><span>영상 업로드 후 프레임 캡처</span></div></button>
+  <div class="disc">⚠️ 임상 보조 참고용. 의료기기 아님.</div>
+</div>
+
+<!-- ASSESS -->
+<div class="scr" id="S1">
+  <div class="prog" id="prg"></div>
+  <div class="cam"><video id="vid" autoplay playsinline muted></video><video id="vidf" style="display:none" playsinline></video><canvas id="cvs"></canvas><div class="badge" id="bdg"><span class="dot"></span><span id="bst">대기</span></div><div class="flash" id="fl"></div></div>
+  <div id="vctl" style="display:none">
+    <div class="upload-a" id="upA" onclick="document.getElementById('finp').click()"><div style="font-size:28px;margin-bottom:4px">📂</div><p style="font-size:12px;color:var(--text2)">동영상 파일 선택</p></div>
+    <input type="file" id="finp" accept="video/*" style="display:none" onchange="onF(event)">
+    <div class="vid-ctrl" id="vbtns" style="display:none">
+      <button class="btn btn-s" style="width:auto;padding:8px 14px;font-size:12px" onclick="sk(-2)">⏪2s</button>
+      <button class="btn btn-s" style="width:auto;padding:8px 14px;font-size:12px" onclick="pp()">▶️⏸️</button>
+      <button class="btn btn-s" style="width:auto;padding:8px 14px;font-size:12px" onclick="sk(2)">2s⏩</button>
+    </div>
+  </div>
+  <div class="sinfo"><div class="lab" id="slab">BASELINE</div><h2 id="stit">-</h2><p id="sdesc">-</p><div class="hint" id="shint">-</div></div>
+  <button class="cap-btn bl" id="capBtn" onclick="capture()">📸 기준 표정 촬영</button>
+  <div style="text-align:center;margin-top:6px"><button class="btn btn-d" style="font-size:12px;padding:10px" onclick="resetAll()">🔄 처음부터</button></div>
+</div>
+
+<!-- RESULTS -->
+<div class="scr" id="S2">
+  <div style="text-align:center;margin-bottom:14px"><h2 style="font-size:20px;font-weight:900">📊 평가 결과</h2><div style="font-size:11px;color:var(--text3)" id="rDt"></div></div>
+  <div class="rtotal"><span class="rn" id="rT">0</span><span class="rm"> / 25</span><div class="rg" id="rG">-</div></div>
+  <div class="radar-w"><h4>점수 분포</h4><canvas id="rdr" width="260" height="260"></canvas></div>
+  <div class="rsec"><h4>🔶 Resting Symmetry (자동 분석)</h4><div class="rtags" id="rRt"></div></div>
+  <div class="rsec"><h4>🔷 Voluntary Movement</h4><div id="rVl"></div></div>
+  <div class="brow"><button class="btn btn-g" onclick="csv()">📥 CSV</button><button class="btn btn-p" onclick="window.print()">🖨️ 출력</button></div>
+  <button class="btn btn-s" style="margin-top:8px" onclick="resetAll()">🔄 새 평가</button>
+  <div class="disc">⚠️ MediaPipe 468 랜드마크 기반 보조 분석. 임상 판단 우선.</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+<script>
+const $=id=>document.getElementById(id);
+const LK={1:'운동 불가 (No movement)',2:'약간의 움직임 (Slight)',3:'경미한 범위 (Mild excursion)',4:'거의 완전 (Almost complete)',5:'완전 (Complete)'};
+const LC={1:'#f87171',2:'#fb923c',3:'#fbbf24',4:'#a3e635',5:'#34d399'};
+
+const STEPS=[
+  {id:'baseline',title:'😐 기준 표정 (Baseline)',desc:'자연스러운 무표정을 유지하세요.',hint:'정면 바라보고 편안한 표정 → 촬영',isBase:true},
+  {id:'forehead',title:'😲 ① 이마 주름',desc:'양쪽 눈썹을 최대한 올려 이마 주름을 만드세요.',hint:'눈썹 올린 상태에서 촬영',icon:'😲',
+   fn(b,c,s){const L=[70,63,105,66,107],R=[300,293,334,296,336];return sy(yd(b,c,L,s),yd(b,c,R,s))}},
+  {id:'eye',title:'😌 ② 눈 감기',desc:'양쪽 눈을 부드럽게 감으세요.',hint:'눈 감은 상태에서 촬영',icon:'😌',
+   fn(b,c,s){const e=(l,u,o,h)=>{const v=D(A(l,u),A(l,o)),d=D(l[h[0]],l[h[1]]);return d>0?v/d:0};const bl=e(b,[159,160,161],[144,145,153],[33,133]),br=e(b,[386,387,388],[373,374,380],[362,263]),cl=e(c,[159,160,161],[144,145,153],[33,133]),cr=e(c,[386,387,388],[373,374,380],[362,263]);return sy(bl>0?Math.max(0,1-cl/bl):0,br>0?Math.max(0,1-cr/br):0)}},
+  {id:'smile',title:'😁 ③ 미소',desc:'입 벌리고 양쪽 입꼬리를 최대한 올리세요.',hint:'최대한 크게 웃으며 촬영',icon:'😁',
+   fn(b,c,s){return sy(Math.sqrt((c[61].x-b[61].x)**2+(b[61].y-c[61].y)**2)/s,Math.sqrt((c[291].x-b[291].x)**2+(b[291].y-c[291].y)**2)/s)}},
+  {id:'snarl',title:'😤 ④ 코 찡그리기',desc:'코를 찡그려 윗입술을 올리세요.',hint:'코 찡그린 상태에서 촬영',icon:'😤',
+   fn(b,c,s){const L=[129,49,209],R=[358,279,429];return sy(D(A(b,L),A(c,L))/s,D(A(b,R),A(c,R))/s)}},
+  {id:'pucker',title:'😙 ⑤ 입 오므리기',desc:'입술을 앞으로 내밀어 오므리세요.',hint:'입 오므린 상태에서 촬영',icon:'😙',
+   fn(b,c,s){const ct=p=>({x:(p[61].x+p[291].x)/2,y:(p[61].y+p[291].y)/2});const bc=ct(b),cc=ct(c);const bld=D(b[61],bc),brd=D(b[291],bc),cld=D(c[61],cc),crd=D(c[291],cc);return sy(bld>0?Math.max(0,1-cld/bld):0,brd>0?Math.max(0,1-crd/brd):0)}}
+];
+
+function D(a,b){return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)}
+function A(l,i){let x=0,y=0,z=0;i.forEach(j=>{x+=l[j].x;y+=l[j].y;z+=l[j].z});const n=i.length;return{x:x/n,y:y/n,z:z/n}}
+function FS(l){return D(A(l,[33,133]),A(l,[362,263]))}
+function yd(b,c,i,s){return(A(b,i).y-A(c,i).y)/s}
+function sy(l,r){const m=Math.max(Math.abs(l),Math.abs(r),.0001);return Math.min(Math.abs(l),Math.abs(r))/m}
+function r2g(r){if(r>=.85)return 5;if(r>=.65)return 4;if(r>=.40)return 3;if(r>=.15)return 2;return 1}
+
+let mode,fm,lm,bl,strm,si=0,vs=[],rest={},curI=0;
+
+// ── Auto Resting Symmetry Analysis ──
+function analyzeResting(landmarks){
+  const s=FS(landmarks);
+  // Eye: compare left/right EAR
+  const ear=(l,u,o,h)=>{const v=D(A(l,u),A(l,o)),d=D(l[h[0]],l[h[1]]);return d>0?v/d:0};
+  const earL=ear(landmarks,[159,160,161],[144,145,153],[33,133]);
+  const earR=ear(landmarks,[386,387,388],[373,374,380],[362,263]);
+  const earDiff=Math.abs(earL-earR);
+  const earAvg=(earL+earR)/2;
+  const earRatio=earAvg>0?earDiff/earAvg:0;
+  
+  let eye='Normal';
+  if(earRatio>.25){
+    eye=earL<earR?'Narrow (좌측)':'Narrow (우측)';
+    if(earL>earR*1.3)eye='Wide (좌측)';
+    if(earR>earL*1.3)eye='Wide (우측)';
+  }
+  
+  // Cheek: nasolabial fold - compare distance from nose tip to cheek landmarks
+  const noseT=landmarks[4];
+  const chkL=A(landmarks,[129,49,209]);
+  const chkR=A(landmarks,[358,279,429]);
+  const chkDistL=D(noseT,chkL)/s;
+  const chkDistR=D(noseT,chkR)/s;
+  const chkRatio=Math.min(chkDistL,chkDistR)/(Math.max(chkDistL,chkDistR)||.001);
+  
+  let cheek='Normal';
+  if(chkRatio<.85){
+    cheek=chkDistL<chkDistR?'Less pronounced (좌측)':'Less pronounced (우측)';
+  }
+
+  // Mouth: compare corner heights
+  const mouthL=landmarks[61];
+  const mouthR=landmarks[291];
+  const mouthDiff=Math.abs(mouthL.y-mouthR.y)/s;
+  
+  let mouth='Normal';
+  if(mouthDiff>.04){
+    mouth=mouthL.y>mouthR.y?'Corner dropped (좌측)':'Corner dropped (우측)';
+  }
+
+  // Symmetry percentage
+  const eyeSym=Math.round((1-earRatio)*100);
+  const cheekSym=Math.round(chkRatio*100);
+  const mouthSym=Math.round(Math.max(0,1-mouthDiff/.1)*100);
+
+  return {
+    eye:{label:eye,sym:eyeSym},
+    cheek:{label:cheek,sym:cheekSym},
+    mouth:{label:mouth,sym:mouthSym}
+  };
+}
+
+// ── FaceMesh ──
+async function initFM(){
+  try{fm=new FaceMesh({locateFile:f=>'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/'+f});
+  fm.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:.5,minTrackingConfidence:.5});
+  fm.onResults(r=>{lm=r.multiFaceLandmarks?.length?r.multiFaceLandmarks[0]:null;const b=$('bdg');b.className='badge'+(lm?'':' no');$('bst').textContent=lm?'얼굴 감지':'미감지';drawOv()});
+  await fm.initialize();$('ld').classList.add('off')}catch(e){$('ldm').textContent='⚠️ '+e.message}}
+
+function drawOv(){const c=$('cvs'),v=gV();if(!c||!v)return;c.width=v.videoWidth||640;c.height=v.videoHeight||480;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);if(!lm)return;const w=c.width,h=c.height;
+[70,63,105,66,107,300,293,334,296,336,33,133,159,145,362,263,386,374,4,129,358,61,291,13,14,17,152].forEach(i=>{const p=lm[i];if(!p)return;ctx.beginPath();ctx.arc(p.x*w,p.y*h,2.5,0,Math.PI*2);ctx.fillStyle='rgba(56,189,248,.7)';ctx.fill()});
+const n=lm[10],ch=lm[152];if(n&&ch){ctx.beginPath();ctx.moveTo(n.x*w,n.y*h);ctx.lineTo(ch.x*w,ch.y*h);ctx.strokeStyle='rgba(251,191,36,.3)';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([])}}
+
+function gV(){return mode==='cam'?$('vid'):$('vidf')}
+async function startCam(){try{strm=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:480},height:{ideal:640}}});$('vid').srcObject=strm;await $('vid').play();tk()}catch(e){alert('카메라 실패: '+e.message)}}
+async function tk(){const v=gV();if(v?.readyState>=2&&fm)await fm.send({image:v});requestAnimationFrame(tk)}
+function onF(e){const f=e.target.files[0];if(!f)return;$('vidf').src=URL.createObjectURL(f);$('vidf').style.display='block';$('upA').style.display='none';$('vbtns').style.display='flex';$('vidf').onloadeddata=()=>tk()}
+function pp(){const v=$('vidf');v.src&&(v.paused?v.play():v.pause())}
+function sk(s){const v=$('vidf');if(v.src)v.currentTime=Math.max(0,v.currentTime+s)}
+function show(id){document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));$(id).classList.add('on')}
+function mkP(){const el=$('prg');el.innerHTML='';for(let i=0;i<STEPS.length;i++){const d=document.createElement('i');d.className=i<si?'dn':i===si?'nw':'';el.appendChild(d)}}
+
+function go(m){mode=m;si=0;vs=[];bl=null;rest={};show('S1');loadS();
+if(m==='cam'){$('vctl').style.display='none';$('vid').style.display='block';$('vidf').style.display='none';startCam()}
+else{$('vctl').style.display='block';$('vid').style.display='none'}}
+
+function loadS(){mkP();const s=STEPS[si];
+$('slab').textContent=s.isBase?'BASELINE':'STEP '+si+' / 5  '+s.icon;
+$('stit').textContent=s.title;$('sdesc').textContent=s.desc;$('shint').textContent=s.hint;
+const cb=$('capBtn');cb.textContent=s.isBase?'📸 기준 표정 촬영 (Resting 자동분석)':'📸 촬영 → 즉시 채점';
+cb.className=s.isBase?'cap-btn bl':'cap-btn'}
+
+function capture(){
+  if(!lm){alert('얼굴이 감지되지 않습니다.');return}
+  const f=$('fl');f.style.opacity='0.5';setTimeout(()=>f.style.opacity='0',100);
+  const cur=lm.map(l=>({x:l.x,y:l.y,z:l.z}));
+  
+  if(si===0){
+    // Baseline + auto resting analysis
+    bl=cur;
+    rest=analyzeResting(cur);
+    showBlPop();
+    return;
+  }
+  // Voluntary movement scoring
+  const s=STEPS[si],sc=FS(bl),ratio=s.fn(bl,cur,sc),grade=r2g(ratio);
+  vs[si-1]=grade;curI=si-1;showPop(s,grade,ratio);
+}
+
+// Baseline result popup
+function showBlPop(){
+  const tags=$('blTags');tags.innerHTML='';
+  const items=[
+    {ico:'👁️',label:'Eye',val:rest.eye},
+    {ico:'🫧',label:'Cheek',val:rest.cheek},
+    {ico:'👄',label:'Mouth',val:rest.mouth}
+  ];
+  items.forEach(it=>{
+    const col=it.val.label==='Normal'?'var(--green)':'var(--orange)';
+    tags.innerHTML+=`<div class="bl-tag"><span class="ico">${it.ico}</span><span>${it.label}: <strong style="color:${col}">${it.val.label}</strong></span><span style="font-family:JetBrains Mono;font-size:11px;color:var(--text3)">${it.val.sym}%</span></div>`;
+  });
+  $('blPop').classList.add('on');
+}
+
+function blPopOk(){
+  $('blPop').classList.remove('on');
+  si=1;loadS();
+}
+
+// Score popup
+function showPop(s,g,r){
+  $('pIco').textContent=s.icon;$('pTit').textContent=s.title.replace(/^[^\s]+\s/,'');
+  $('pNum').textContent=g;$('pNum').style.color=LC[g];
+  $('pNum').style.animation='none';void $('pNum').offsetWidth;$('pNum').style.animation='popIn .4s cubic-bezier(.17,.67,.29,1.4)';
+  $('pLab').textContent=LK[g];$('pLab').style.color=LC[g];
+  $('pSym').textContent='대칭도 '+Math.round(r*100)+'%';
+  $('pEd').querySelectorAll('button').forEach((b,i)=>b.classList.toggle('sel',i+1===g));
+  $('pNxt').textContent=si>=STEPS.length-1?'✅ 결과 보기':'다음 동작 →';
+  $('pop').classList.add('on');
+}
+
+function eS(n){vs[curI]=n;$('pNum').textContent=n;$('pNum').style.color=LC[n];$('pLab').textContent=LK[n];$('pLab').style.color=LC[n];
+$('pEd').querySelectorAll('button').forEach((b,i)=>b.classList.toggle('sel',i+1===n))}
+
+function popOk(){$('pop').classList.remove('on');si++;si>=STEPS.length?showRes():loadS()}
+
+// Results
+function showRes(){
+  if(strm){strm.getTracks().forEach(t=>t.stop());strm=null}show('S2');
+  const now=new Date();$('rDt').textContent=now.toLocaleDateString('ko-KR')+' '+now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  const tot=vs.reduce((a,b)=>a+b,0);$('rT').textContent=tot;
+  let gr,gc;if(tot>=23){gr='Grade I — 정상';gc='#34d399'}else if(tot>=19){gr='Grade II — 경도';gc='#a3e635'}else if(tot>=14){gr='Grade III — 중등도';gc='#fbbf24'}else if(tot>=9){gr='Grade IV — 중등-중증';gc='#fb923c'}else if(tot>=6){gr='Grade V — 중증';gc='#f87171'}else{gr='Grade VI — 완전마비';gc='#ef4444'}
+  const g=$('rG');g.textContent=gr;g.style.background=gc+'20';g.style.color=gc;g.style.border='1px solid '+gc+'44';$('rT').style.color=gc;
+
+  // Resting tags (auto)
+  const rt=$('rRt');rt.innerHTML='';
+  const rl={eye:'👁️ Eye',cheek:'🫧 Cheek',mouth:'👄 Mouth'};
+  Object.entries(rest).forEach(([k,v])=>{
+    const col=v.label==='Normal'?'':'style="color:var(--orange)"';
+    rt.innerHTML+=`<span>${rl[k]}: <strong ${col}>${v.label}</strong> (${v.sym}%)</span>`;
+  });
+
+  // Voluntary items
+  const rv=$('rVl');rv.innerHTML='';const nm=['이마주름','눈감기','미소','코찡그리기','입오므리기'],ic=['😲','😌','😁','😤','😙'];
+  vs.forEach((sc,i)=>{const p=sc/5*100,c=LC[sc];rv.innerHTML+='<div class="ri"><div class="rt"><span class="rn2">'+ic[i]+' '+nm[i]+'</span><span class="rv" style="color:'+c+'">'+sc+'/5</span></div><div class="rbar"><div style="width:'+p+'%;background:'+c+'"></div></div><div class="rd">'+LK[sc]+'</div></div>'});
+  
+  // Radar
+  const cn=$('rdr'),ctx=cn.getContext('2d'),w=cn.width,h=cn.height,cx=w/2,cy=h/2,r=Math.min(cx,cy)-32;ctx.clearRect(0,0,w,h);const n=5,st=Math.PI*2/n;
+  [1,2,3,4,5].forEach(v=>{const g2=r*v/5;ctx.beginPath();for(let i=0;i<=n;i++){const a=i*st-Math.PI/2;i===0?ctx.moveTo(cx+g2*Math.cos(a),cy+g2*Math.sin(a)):ctx.lineTo(cx+g2*Math.cos(a),cy+g2*Math.sin(a))}ctx.strokeStyle='rgba(42,53,80,.5)';ctx.stroke()});
+  for(let i=0;i<n;i++){const a=i*st-Math.PI/2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));ctx.strokeStyle='rgba(42,53,80,.3)';ctx.stroke();ctx.fillStyle='#8b99ad';ctx.font='10px Noto Sans KR';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(nm[i],cx+(r+18)*Math.cos(a),cy+(r+18)*Math.sin(a))}
+  ctx.beginPath();vs.forEach((v,i)=>{const a=i*st-Math.PI/2,d=r*v/5;i===0?ctx.moveTo(cx+d*Math.cos(a),cy+d*Math.sin(a)):ctx.lineTo(cx+d*Math.cos(a),cy+d*Math.sin(a))});
+  ctx.closePath();ctx.fillStyle='rgba(56,189,248,.18)';ctx.fill();ctx.strokeStyle='rgba(56,189,248,.75)';ctx.lineWidth=2;ctx.stroke();
+  vs.forEach((v,i)=>{const a=i*st-Math.PI/2,d=r*v/5;ctx.beginPath();ctx.arc(cx+d*Math.cos(a),cy+d*Math.sin(a),4,0,Math.PI*2);ctx.fillStyle='#38bdf8';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke()});
+}
+
+function csv(){let c='\uFEFF구분,항목,값,대칭도\n';
+c+='Resting,Eye,'+rest.eye.label+','+rest.eye.sym+'%\n';
+c+='Resting,Cheek,'+rest.cheek.label+','+rest.cheek.sym+'%\n';
+c+='Resting,Mouth,'+rest.mouth.label+','+rest.mouth.sym+'%\n';
+const nm=['Forehead Wrinkle','Gentle Eye Closure','Open Mouth Smile','Snarl','Lip Pucker'];
+vs.forEach((v,i)=>c+='Voluntary,'+nm[i]+','+v+'/5,'+LK[v]+'\n');
+c+='\n총점,,'+vs.reduce((a,b)=>a+b,0)+'/25\n평가일시,,'+new Date().toLocaleString('ko-KR')+'\n';
+const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv;charset=utf-8'}));a.download='facial_'+new Date().toISOString().slice(0,10)+'.csv';a.click()}
+
+function resetAll(){if(strm){strm.getTracks().forEach(t=>t.stop());strm=null}mode=null;si=0;vs=[];bl=null;lm=null;rest={};
+$('upA').style.display='block';$('vbtns').style.display='none';$('pop').classList.remove('on');$('blPop').classList.remove('on');show('S0')}
+initFM();
+</script>
+</body>
+</html>
