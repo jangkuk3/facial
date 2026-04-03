@@ -182,22 +182,22 @@ const LC={1:'#f87171',2:'#fb923c',3:'#fbbf24',4:'#a3e635',5:'#34d399'};
 const STEPS=[
   {id:'baseline',title:'😐 기준 표정 (Baseline)',desc:'자연스러운 무표정을 유지하세요.',hint:'정면 바라보고 편안한 표정 → 촬영',isBase:true},
   {id:'forehead',title:'😲 ① 이마 주름',desc:'양쪽 눈썹을 최대한 올려 이마 주름을 만드세요.',hint:'눈썹 올린 상태에서 촬영',icon:'😲',
-   fn(b,c,s){const L=[70,63,105,66,107],R=[300,293,334,296,336];return sy(yd(b,c,L,s),yd(b,c,R,s))}},
+   fn(b,c,s){const L=[70,63,105,66,107],R=[300,293,334,296,336];const dl=yd(b,c,L,s),dr=yd(b,c,R,s);const mag=(Math.abs(dl)+Math.abs(dr))/2;return Math.min(mag/0.04,1)*sy(dl,dr)}},
   {id:'eye',title:'😌 ② 눈 감기',desc:'양쪽 눈을 부드럽게 감으세요.',hint:'눈 감은 상태에서 촬영',icon:'😌',
-   fn(b,c,s){const e=(l,u,o,h)=>{const v=D(A(l,u),A(l,o)),d=D(l[h[0]],l[h[1]]);return d>0?v/d:0};const bl=e(b,[159,160,161],[144,145,153],[33,133]),br=e(b,[386,387,388],[373,374,380],[362,263]),cl=e(c,[159,160,161],[144,145,153],[33,133]),cr=e(c,[386,387,388],[373,374,380],[362,263]);return sy(bl>0?Math.max(0,1-cl/bl):0,br>0?Math.max(0,1-cr/br):0)}},
+   fn(b,c,s){const e=(l,u,o,h)=>{const v=D(A(l,u),A(l,o)),d=D(l[h[0]],l[h[1]]);return d>0?v/d:0};const bl=e(b,[159,160,161],[144,145,153],[33,133]),br=e(b,[386,387,388],[373,374,380],[362,263]),cl=e(c,[159,160,161],[144,145,153],[33,133]),cr=e(c,[386,387,388],[373,374,380],[362,263]);const lc=bl>0?Math.max(0,1-cl/bl):0,rc=br>0?Math.max(0,1-cr/br):0;return((lc+rc)/2)*sy(lc,rc)}},
   {id:'smile',title:'😁 ③ 미소',desc:'입 벌리고 양쪽 입꼬리를 최대한 올리세요.',hint:'최대한 크게 웃으며 촬영',icon:'😁',
-   fn(b,c,s){return sy(Math.sqrt((c[61].x-b[61].x)**2+(b[61].y-c[61].y)**2)/s,Math.sqrt((c[291].x-b[291].x)**2+(b[291].y-c[291].y)**2)/s)}},
+   fn(b,c,s){const dl=Math.sqrt((c[61].x-b[61].x)**2+(b[61].y-c[61].y)**2)/s,dr=Math.sqrt((c[291].x-b[291].x)**2+(b[291].y-c[291].y)**2)/s;const mag=(dl+dr)/2;return Math.min(mag/0.03,1)*sy(dl,dr)}},
   {id:'snarl',title:'😤 ④ 코 찡그리기',desc:'코를 찡그려 윗입술을 올리세요.',hint:'코 찡그린 상태에서 촬영',icon:'😤',
-   fn(b,c,s){const L=[129,49,209],R=[358,279,429];return sy(D(A(b,L),A(c,L))/s,D(A(b,R),A(c,R))/s)}},
+   fn(b,c,s){const L=[129,49,209],R=[358,279,429];const dl=D(A(b,L),A(c,L))/s,dr=D(A(b,R),A(c,R))/s;const mag=(dl+dr)/2;return Math.min(mag/0.02,1)*sy(dl,dr)}},
   {id:'pucker',title:'😙 ⑤ 입 오므리기',desc:'입술을 앞으로 내밀어 오므리세요.',hint:'입 오므린 상태에서 촬영',icon:'😙',
-   fn(b,c,s){const ct=p=>({x:(p[61].x+p[291].x)/2,y:(p[61].y+p[291].y)/2});const bc=ct(b),cc=ct(c);const bld=D(b[61],bc),brd=D(b[291],bc),cld=D(c[61],cc),crd=D(c[291],cc);return sy(bld>0?Math.max(0,1-cld/bld):0,brd>0?Math.max(0,1-crd/brd):0)}}
+   fn(b,c,s){const ct=p=>({x:(p[61].x+p[291].x)/2,y:(p[61].y+p[291].y)/2});const bc=ct(b),cc=ct(c);const bld=D(b[61],bc),brd=D(b[291],bc),cld=D(c[61],cc),crd=D(c[291],cc);const lc=bld>0?Math.max(0,1-cld/bld):0,rc=brd>0?Math.max(0,1-crd/brd):0;return((lc+rc)/2)*sy(lc,rc)}}
 ];
 
 function D(a,b){return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)}
 function A(l,i){let x=0,y=0,z=0;i.forEach(j=>{x+=l[j].x;y+=l[j].y;z+=l[j].z});const n=i.length;return{x:x/n,y:y/n,z:z/n}}
 function FS(l){return D(A(l,[33,133]),A(l,[362,263]))}
 function yd(b,c,i,s){return(A(b,i).y-A(c,i).y)/s}
-function sy(l,r){const m=Math.max(Math.abs(l),Math.abs(r),.0001);return Math.min(Math.abs(l),Math.abs(r))/m}
+function sy(l,r){const al=Math.abs(l),ar=Math.abs(r);if(al+ar<0.001)return 0;const m=Math.max(al,ar);return Math.min(al,ar)/m}
 function r2g(r){if(r>=.85)return 5;if(r>=.65)return 4;if(r>=.40)return 3;if(r>=.15)return 2;return 1}
 
 let mode,fm,lm,bl,strm,si=0,vs=[],rest={},curI=0;
@@ -298,7 +298,7 @@ function capture(){
     return;
   }
   // Voluntary movement scoring
-  const s=STEPS[si],sc=FS(bl),ratio=s.fn(bl,cur,sc),grade=r2g(ratio);
+  const s=STEPS[si],sc=FS(bl),ratio=s.fn(bl,cur,sc),grade=r2g(ratio);console.log("SCORE_DEBUG",{step:s.title,si,sc,ratio,grade});console.log("LANDMARK_DIFF",{bl_70_y:bl[70].y,cur_70_y:cur[70].y,diff_70:bl[70].y-cur[70].y,bl_300_y:bl[300].y,cur_300_y:cur[300].y,diff_300:bl[300].y-cur[300].y});
   vs[si-1]=grade;curI=si-1;showPop(s,grade,ratio);
 }
 
