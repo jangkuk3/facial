@@ -200,6 +200,78 @@ function yd(b,c,i,s){return(A(b,i).y-A(c,i).y)/s}
 function sy(l,r){const al=Math.abs(l),ar=Math.abs(r);if(al+ar<0.001)return 0;const m=Math.max(al,ar);return Math.min(al,ar)/m}
 function r2g(r){if(r>=.85)return 5;if(r>=.65)return 4;if(r>=.40)return 3;if(r>=.15)return 2;return 1}
 
+// ── POSE-CHECK (Phase 1-d-4-web, spec v1.0) ──────────────────────────────
+// docs/POSE_CHECK_SPEC.md §3. 스코어 경로에 개입하지 않음 (해석용 메타데이터).
+// 웹 경로는 iOS 와 동일하게 랜드마크 근사 (yaw/pitch §3.2/§3.3).
+function computePoseCheck(landmarks, imageWidth, imageHeight){
+  if(!landmarks || landmarks.length < 468) return null;
+  const px = i => ({x: landmarks[i].x * imageWidth, y: landmarks[i].y * imageHeight});
+  const eyeC = (outer, inner) => {
+    const a = px(outer), b = px(inner);
+    return {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
+  };
+  const lEye = eyeC(33,133);
+  const rEye = eyeC(263,362);
+  const dx = rEye.x - lEye.x, dy = rEye.y - lEye.y;
+  const roll = (dx===0 && dy===0) ? null : Math.atan2(dy, dx) * 180 / Math.PI;
+  const ipd = Math.sqrt(dx*dx + dy*dy);
+  const nose = px(1);
+  const lTemple = px(234), rTemple = px(454);
+  const faceCenterX = (lTemple.x + rTemple.x) / 2;
+  const yaw = (ipd > 0) ? Math.atan2(nose.x - faceCenterX, ipd) * 180 / Math.PI : null;
+  const forehead = px(10), chin = px(152);
+  const faceMidY = (forehead.y + chin.y) / 2;
+  const pitch = (ipd > 0) ? Math.atan2(nose.y - faceMidY, ipd) * 180 / Math.PI : null;
+  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+  for(const p of landmarks){
+    const x = p.x*imageWidth, y = p.y*imageHeight;
+    if(x<minX)minX=x; if(x>maxX)maxX=x;
+    if(y<minY)minY=y; if(y>maxY)maxY=y;
+  }
+  const bboxW = Math.round(maxX - minX);
+  const bboxH = Math.round(maxY - minY);
+  const centerX = imageWidth>0 ? ((minX+maxX)/2)/imageWidth : null;
+  const centerY = imageHeight>0 ? ((minY+maxY)/2)/imageHeight : null;
+  return {
+    yaw, pitch, roll,
+    ipd_px: ipd,
+    bbox: {width: bboxW, height: bboxH},
+    center: {x: centerX, y: centerY}
+  };
+}
+
+function logPoseCheck(movement, attempt, poseResult){
+  if(!poseResult) return;
+  const f = v => v==null ? 'n/a' : v.toFixed(2);
+  console.log(`[POSE-CHECK] movement=${movement} attempt=${attempt}`);
+  console.log(`  yaw=${f(poseResult.yaw)}° pitch=${f(poseResult.pitch)}° roll=${f(poseResult.roll)}°`);
+  console.log(`  ipd=${f(poseResult.ipd_px)}px bbox=${poseResult.bbox.width}x${poseResult.bbox.height}`);
+  console.log(`  center=(${f(poseResult.center.x)}, ${f(poseResult.center.y)})`);
+  console.log(`  rest_at=${poseResult.rest_captured_at_ms??'n/a'}ms peak_at=${poseResult.peak_at_ms??'n/a'}ms`);
+}
+
+// Timing state (measurement start 기준 ms anchor)
+let measurementStartAt=null, restCapturedAtMs=null, peakAtMs=null, currentSessionId=null;
+
+function generateSessionId(){
+  return 'web_' + Date.now() + '_' + Math.random().toString(36).slice(2,10);
+}
+function onMeasurementStart(){
+  measurementStartAt = Date.now();
+  restCapturedAtMs = null;
+  peakAtMs = null;
+  currentSessionId = generateSessionId();
+}
+function onRestCaptured(){
+  if(measurementStartAt==null) return;
+  restCapturedAtMs = Date.now() - measurementStartAt;
+}
+function onMovementPeak(){
+  if(measurementStartAt==null) return null;
+  peakAtMs = Date.now() - measurementStartAt;
+  return peakAtMs;
+}
+
 let mode,fm,lm,bl,strm,si=0,vs=[],rest={},curI=0;
 
 // ── Auto Resting Symmetry Analysis ──
@@ -275,7 +347,7 @@ function sk(s){const v=$('vidf');if(v.src)v.currentTime=Math.max(0,v.currentTime
 function show(id){document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));$(id).classList.add('on')}
 function mkP(){const el=$('prg');el.innerHTML='';for(let i=0;i<STEPS.length;i++){const d=document.createElement('i');d.className=i<si?'dn':i===si?'nw':'';el.appendChild(d)}}
 
-function go(m){mode=m;si=0;vs=[];bl=null;rest={};show('S1');loadS();
+function go(m){mode=m;si=0;vs=[];bl=null;rest={};onMeasurementStart();show('S1');loadS();
 if(m==='cam'){$('vctl').style.display='none';$('vid').style.display='block';$('vidf').style.display='none';startCam()}
 else{$('vctl').style.display='block';$('vid').style.display='none'}}
 
@@ -294,12 +366,43 @@ function capture(){
     // Baseline + auto resting analysis
     bl=cur;
     rest=analyzeResting(cur);
+    onRestCaptured();
     showBlPop();
     return;
   }
   // Voluntary movement scoring
   const s=STEPS[si],sc=FS(bl),ratio=s.fn(bl,cur,sc),grade=r2g(ratio);console.log("SCORE_DEBUG",{step:s.title,si,sc,ratio,grade});console.log("LANDMARK_DIFF",{bl_70_y:bl[70].y,cur_70_y:cur[70].y,diff_70:bl[70].y-cur[70].y,bl_300_y:bl[300].y,cur_300_y:cur[300].y,diff_300:bl[300].y-cur[300].y});
-  vs[si-1]=grade;curI=si-1;showPop(s,grade,ratio);
+  vs[si-1]=grade;curI=si-1;
+  // POSE-CHECK snapshot (스코어 경로에 개입하지 않음)
+  try {
+    onMovementPeak();
+    const v=gV();
+    const imgW=v?.videoWidth||640, imgH=v?.videoHeight||480;
+    const pose=computePoseCheck(lm, imgW, imgH);
+    if(pose){
+      pose.rest_captured_at_ms=restCapturedAtMs;
+      pose.peak_at_ms=peakAtMs;
+      logPoseCheck(s.id, 1, pose);
+      if(window.saveWebPoseLog){
+        window.saveWebPoseLog({
+          sessionId: currentSessionId,
+          movement: s.id,
+          pose_yaw: pose.yaw,
+          pose_pitch: pose.pitch,
+          pose_roll: pose.roll,
+          pose_ipd_px: pose.ipd_px,
+          pose_bbox: pose.bbox,
+          pose_center: pose.center,
+          rest_captured_at_ms: restCapturedAtMs,
+          peak_at_ms: peakAtMs,
+          score_total: grade,
+          score_detail: {ratio: ratio, grade: grade},
+          userAgent: navigator.userAgent
+        }).catch(()=>{});
+      }
+    }
+  } catch(e){ console.warn('[POSE-CHECK] snapshot failed:', e); }
+  showPop(s,grade,ratio);
 }
 
 // Baseline result popup
@@ -380,6 +483,61 @@ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{typ
 function resetAll(){if(strm){strm.getTracks().forEach(t=>t.stop());strm=null}mode=null;si=0;vs=[];bl=null;lm=null;rest={};
 $('upA').style.display='block';$('vbtns').style.display='none';$('pop').classList.remove('on');$('blPop').classList.remove('on');show('S0')}
 initFM();
+</script>
+
+<!-- ── Firebase Web SDK v10 (Phase 1-d-4-web POSE-CHECK) ──────────────────
+     익명 인증 + Firestore `web_pose_logs` 쓰기 전용. V3 스코어링 / 기존 로직과 완전 독립.
+     ※ Firebase Console 수동 설정 필요 — docs/FIREBASE_SETUP.md 참조.               -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// TODO(Dk): Firebase Console > 프로젝트 설정 > 웹 앱 등록 후 실제 값으로 교체.
+//          docs/FIREBASE_SETUP.md 의 "1. Firebase Console 설정" 참고.
+const firebaseConfig = {
+  apiKey: "TODO_API_KEY",
+  authDomain: "TODO_AUTH_DOMAIN",
+  projectId: "TODO_PROJECT_ID",
+  storageBucket: "TODO_STORAGE_BUCKET",
+  messagingSenderId: "TODO_SENDER_ID",
+  appId: "TODO_APP_ID"
+};
+
+let _fbReady=false, _uid=null, _db=null;
+try {
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  _db = getFirestore(app);
+  signInAnonymously(auth).catch(e => console.warn('[POSE-CHECK] auth failed:', e));
+  onAuthStateChanged(auth, user => {
+    if(user){
+      _uid = user.uid;
+      _fbReady = true;
+      console.log('[POSE-CHECK] Firebase ready uid=', _uid.slice(0,8));
+    }
+  });
+} catch(e){
+  console.warn('[POSE-CHECK] Firebase init failed:', e);
+}
+
+window.saveWebPoseLog = async function(payload){
+  if(!_fbReady || !_db){
+    console.warn('[POSE-CHECK] Firebase not ready, skipping save');
+    return;
+  }
+  try {
+    await addDoc(collection(_db, 'web_pose_logs'), {
+      uid: _uid,
+      timestamp: serverTimestamp(),
+      platform: 'web',
+      specVersion: 'v1.0',
+      ...payload
+    });
+  } catch(e){
+    console.warn('[POSE-CHECK] Firestore write failed:', e);
+  }
+};
 </script>
 </body>
 </html>
