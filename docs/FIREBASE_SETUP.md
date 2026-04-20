@@ -1,52 +1,23 @@
-# Firebase 연동 수동 설정 가이드 (Phase 1-d-4-web)
+# Firebase 연동 설정 (Phase 1-d-4-web) — 완료 상태 문서
 
-`index.html` 의 POSE-CHECK 로그를 Firestore (`web_pose_logs`) 에 기록하기 위한 Firebase Web 연동 절차. Firebase Console 수동 작업이 필요하다.
+`index.html` 의 POSE-CHECK 로그를 Firestore (`web_pose_logs`) 에 기록하기 위한 Firebase Web 연동. **Firebase Console 사전 준비 완료** — 본 문서는 설정 요약 / 향후 변경 시 참조용.
 
-## 1. Firebase Console 설정
+## 1. 프로젝트 · 웹 앱 등록 (완료)
 
-### 1-1. 프로젝트 선택 / 생성
+- **Project ID:** `facial-sukje-app` (모바일 앱과 동일 프로젝트 공유)
+- **웹 앱 닉네임:** `FaceCoach Web (POSE-CHECK)`
+- **`firebaseConfig`** 은 `index.html` 하단 `<script type="module">` 블록에 하드코딩되어 있다.
+  - `apiKey` 는 Firebase Web SDK 상 **공개 식별자** — Firestore 규칙으로 쓰기 범위를 통제 (아래 3장).
+  - 향후 key rotation 이 필요하면 Firebase Console → 프로젝트 설정 → 일반 → 내 앱 > SDK 구성 에서 새 값 복사 후 `index.html` 교체.
 
-기존 `facial-sukje-app` 프로젝트를 공유해 쓰거나, 웹 전용 프로젝트를 신규로 생성한다.
-- 기존 공유 방식은 모바일 앱 Firestore 와 동일 DB 인데 `web_pose_logs` 컬렉션만 별도 사용 → 간단.
-- 신규 프로젝트는 완전 격리되지만 Console / Billing 이 2개로 늘어남.
+## 2. Authentication — 익명 로그인 (활성화 완료)
 
-### 1-2. 웹 앱 등록
+- Authentication → Sign-in method 탭 → "익명" Provider **사용 설정됨**.
+- Settings → 승인된 도메인: `jangkuk3.github.io`, `localhost`.
 
-Firebase Console → ⚙️ 프로젝트 설정 → 일반 → "내 앱" 섹션 → 웹 앱 추가 (`</>` 아이콘).
-- 앱 닉네임: `facial-web` (임의).
-- Firebase Hosting 설정은 **체크 해제** (Github Pages 사용 중).
+## 3. Firestore 보안 규칙 (게시 완료)
 
-등록 완료 후 표시되는 `firebaseConfig` 객체 6개 필드를 복사한다.
-
-### 1-3. `index.html` 설정값 교체
-
-`index.html` 하단 `<script type="module">` 블록의 다음 6개 값을 실제값으로 교체:
-
-```js
-const firebaseConfig = {
-  apiKey: "TODO_API_KEY",              // ← 실제 값으로
-  authDomain: "TODO_AUTH_DOMAIN",
-  projectId: "TODO_PROJECT_ID",
-  storageBucket: "TODO_STORAGE_BUCKET",
-  messagingSenderId: "TODO_SENDER_ID",
-  appId: "TODO_APP_ID"
-};
-```
-
-> `apiKey` 는 Firebase Web SDK 상 **공개 식별자**이지만, Firestore 규칙으로 쓰기 범위를 통제한다 (아래 3장).
-
-## 2. Authentication — 익명 로그인 활성화
-
-Firebase Console → Authentication → Sign-in method 탭:
-- "익명" Provider → **사용 설정**.
-
-Settings → **승인된 도메인** 에 다음 도메인 추가:
-- `jangkuk3.github.io` (Github Pages 프로덕션)
-- `localhost` (로컬 테스트용, 기본 포함되어 있음)
-
-## 3. Firestore 보안 규칙
-
-Firestore Database → 규칙 탭. `web_pose_logs` 컬렉션에 **create 만** 허용하고 read/update/delete 는 전면 차단한다.
+`web_pose_logs` 컬렉션에 **create 만** 허용하고 read/update/delete 는 전면 차단한다.
 
 ```
 rules_version = '2';

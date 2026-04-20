@@ -200,76 +200,118 @@ function yd(b,c,i,s){return(A(b,i).y-A(c,i).y)/s}
 function sy(l,r){const al=Math.abs(l),ar=Math.abs(r);if(al+ar<0.001)return 0;const m=Math.max(al,ar);return Math.min(al,ar)/m}
 function r2g(r){if(r>=.85)return 5;if(r>=.65)return 4;if(r>=.40)return 3;if(r>=.15)return 2;return 1}
 
-// ── POSE-CHECK (Phase 1-d-4-web, spec v1.0) ──────────────────────────────
-// docs/POSE_CHECK_SPEC.md §3. 스코어 경로에 개입하지 않음 (해석용 메타데이터).
-// 웹 경로는 iOS 와 동일하게 랜드마크 근사 (yaw/pitch §3.2/§3.3).
-function computePoseCheck(landmarks, imageWidth, imageHeight){
-  if(!landmarks || landmarks.length < 468) return null;
-  const px = i => ({x: landmarks[i].x * imageWidth, y: landmarks[i].y * imageHeight});
-  const eyeC = (outer, inner) => {
-    const a = px(outer), b = px(inner);
-    return {x:(a.x+b.x)/2, y:(a.y+b.y)/2};
+// ── POSE-CHECK: Phase 1-d-4-web ──────────────────────────────────────────
+// 사양: docs/POSE_CHECK_SPEC.md v1.0
+// Firebase: facial-sukje-app / web_pose_logs 컬렉션 / 익명 auth
+// 스코어 경로에 개입하지 않음 (해석용 메타데이터).
+function computePoseCheck(landmarks, imageWidth, imageHeight) {
+  const LEFT_EYE_OUTER = 33, LEFT_EYE_INNER = 133;
+  const RIGHT_EYE_OUTER = 263, RIGHT_EYE_INNER = 362;
+  const NOSE_TIP = 1, FOREHEAD = 10, CHIN = 152;
+
+  const leftEyeCenter = {
+    x: ((landmarks[LEFT_EYE_OUTER].x + landmarks[LEFT_EYE_INNER].x) / 2) * imageWidth,
+    y: ((landmarks[LEFT_EYE_OUTER].y + landmarks[LEFT_EYE_INNER].y) / 2) * imageHeight
   };
-  const lEye = eyeC(33,133);
-  const rEye = eyeC(263,362);
-  const dx = rEye.x - lEye.x, dy = rEye.y - lEye.y;
-  const roll = (dx===0 && dy===0) ? null : Math.atan2(dy, dx) * 180 / Math.PI;
-  const ipd = Math.sqrt(dx*dx + dy*dy);
-  const nose = px(1);
-  const lTemple = px(234), rTemple = px(454);
-  const faceCenterX = (lTemple.x + rTemple.x) / 2;
-  const yaw = (ipd > 0) ? Math.atan2(nose.x - faceCenterX, ipd) * 180 / Math.PI : null;
-  const forehead = px(10), chin = px(152);
-  const faceMidY = (forehead.y + chin.y) / 2;
-  const pitch = (ipd > 0) ? Math.atan2(nose.y - faceMidY, ipd) * 180 / Math.PI : null;
-  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
-  for(const p of landmarks){
-    const x = p.x*imageWidth, y = p.y*imageHeight;
-    if(x<minX)minX=x; if(x>maxX)maxX=x;
-    if(y<minY)minY=y; if(y>maxY)maxY=y;
+  const rightEyeCenter = {
+    x: ((landmarks[RIGHT_EYE_OUTER].x + landmarks[RIGHT_EYE_INNER].x) / 2) * imageWidth,
+    y: ((landmarks[RIGHT_EYE_OUTER].y + landmarks[RIGHT_EYE_INNER].y) / 2) * imageHeight
+  };
+
+  const dx = rightEyeCenter.x - leftEyeCenter.x;
+  const dy = rightEyeCenter.y - leftEyeCenter.y;
+  const roll = Math.atan2(dy, dx) * 180 / Math.PI;
+  const ipdPx = Math.sqrt(dx * dx + dy * dy);
+
+  const faceCenter = {
+    x: (leftEyeCenter.x + rightEyeCenter.x) / 2,
+    y: (leftEyeCenter.y + rightEyeCenter.y) / 2
+  };
+
+  const noseTip = {
+    x: landmarks[NOSE_TIP].x * imageWidth,
+    y: landmarks[NOSE_TIP].y * imageHeight
+  };
+  const yaw = Math.atan2(noseTip.x - faceCenter.x, ipdPx) * 180 / Math.PI;
+
+  const forehead = landmarks[FOREHEAD];
+  const chin = landmarks[CHIN];
+  const verticalFaceSize = (chin.y - forehead.y) * imageHeight;
+  const nosePitch = verticalFaceSize > 0
+    ? (noseTip.y - forehead.y * imageHeight) / verticalFaceSize
+    : 0.5;
+  const pitch = (nosePitch - 0.5) * 90;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const lm of landmarks) {
+    if (lm.x < minX) minX = lm.x;
+    if (lm.y < minY) minY = lm.y;
+    if (lm.x > maxX) maxX = lm.x;
+    if (lm.y > maxY) maxY = lm.y;
   }
-  const bboxW = Math.round(maxX - minX);
-  const bboxH = Math.round(maxY - minY);
-  const centerX = imageWidth>0 ? ((minX+maxX)/2)/imageWidth : null;
-  const centerY = imageHeight>0 ? ((minY+maxY)/2)/imageHeight : null;
+
   return {
-    yaw, pitch, roll,
-    ipd_px: ipd,
-    bbox: {width: bboxW, height: bboxH},
-    center: {x: centerX, y: centerY}
+    yaw: parseFloat(yaw.toFixed(1)),
+    pitch: parseFloat(pitch.toFixed(1)),
+    roll: parseFloat(roll.toFixed(1)),
+    ipd_px: Math.round(ipdPx),
+    bbox: {
+      width: Math.round((maxX - minX) * imageWidth),
+      height: Math.round((maxY - minY) * imageHeight)
+    },
+    center: {
+      x: parseFloat(((minX + maxX) / 2).toFixed(2)),
+      y: parseFloat(((minY + maxY) / 2).toFixed(2))
+    },
+    rest_captured_at_ms: null,
+    peak_at_ms: null
   };
 }
 
-function logPoseCheck(movement, attempt, poseResult){
-  if(!poseResult) return;
-  const f = v => v==null ? 'n/a' : v.toFixed(2);
-  console.log(`[POSE-CHECK] movement=${movement} attempt=${attempt}`);
-  console.log(`  yaw=${f(poseResult.yaw)}° pitch=${f(poseResult.pitch)}° roll=${f(poseResult.roll)}°`);
-  console.log(`  ipd=${f(poseResult.ipd_px)}px bbox=${poseResult.bbox.width}x${poseResult.bbox.height}`);
-  console.log(`  center=(${f(poseResult.center.x)}, ${f(poseResult.center.y)})`);
-  console.log(`  rest_at=${poseResult.rest_captured_at_ms??'n/a'}ms peak_at=${poseResult.peak_at_ms??'n/a'}ms`);
+function logPoseCheck(movement, attempt, poseResult) {
+  const restStr = poseResult.rest_captured_at_ms !== null
+    ? '+' + (poseResult.rest_captured_at_ms / 1000).toFixed(1) + 's'
+    : 'N/A';
+  const peakStr = poseResult.peak_at_ms !== null
+    ? '+' + (poseResult.peak_at_ms / 1000).toFixed(1) + 's'
+    : 'N/A';
+
+  console.log(
+    `[POSE-CHECK] platform=web movement=${movement} attempt=${attempt}\n` +
+    `  yaw=${poseResult.yaw}°  pitch=${poseResult.pitch}°  roll=${poseResult.roll}°\n` +
+    `  ipd_px=${poseResult.ipd_px}  bbox=(${poseResult.bbox.width}x${poseResult.bbox.height})  ` +
+    `center=(${poseResult.center.x}, ${poseResult.center.y})\n` +
+    `  rest_captured_at=${restStr}  peak_at=${peakStr}`
+  );
 }
 
-// Timing state (measurement start 기준 ms anchor)
-let measurementStartAt=null, restCapturedAtMs=null, peakAtMs=null, currentSessionId=null;
+// Timing state (measurement start 기준 ms anchor, performance.now)
+let measurementStartAt = null;
+let restCapturedAtMs = null;
+let peakAtMs = null;
+let currentSessionId = null;
 
-function generateSessionId(){
-  return 'web_' + Date.now() + '_' + Math.random().toString(36).slice(2,10);
+function generateSessionId() {
+  return 'web-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
 }
-function onMeasurementStart(){
-  measurementStartAt = Date.now();
+
+function onMeasurementStart() {
+  measurementStartAt = performance.now();
   restCapturedAtMs = null;
   peakAtMs = null;
   currentSessionId = generateSessionId();
 }
-function onRestCaptured(){
-  if(measurementStartAt==null) return;
-  restCapturedAtMs = Date.now() - measurementStartAt;
+
+function onRestCaptured() {
+  if (measurementStartAt !== null) {
+    restCapturedAtMs = Math.round(performance.now() - measurementStartAt);
+  }
 }
-function onMovementPeak(){
-  if(measurementStartAt==null) return null;
-  peakAtMs = Date.now() - measurementStartAt;
-  return peakAtMs;
+
+function onMovementPeak() {
+  if (measurementStartAt !== null) {
+    peakAtMs = Math.round(performance.now() - measurementStartAt);
+  }
 }
 
 let mode,fm,lm,bl,strm,si=0,vs=[],rest={},curI=0;
@@ -373,35 +415,22 @@ function capture(){
   // Voluntary movement scoring
   const s=STEPS[si],sc=FS(bl),ratio=s.fn(bl,cur,sc),grade=r2g(ratio);console.log("SCORE_DEBUG",{step:s.title,si,sc,ratio,grade});console.log("LANDMARK_DIFF",{bl_70_y:bl[70].y,cur_70_y:cur[70].y,diff_70:bl[70].y-cur[70].y,bl_300_y:bl[300].y,cur_300_y:cur[300].y,diff_300:bl[300].y-cur[300].y});
   vs[si-1]=grade;curI=si-1;
-  // POSE-CHECK snapshot (스코어 경로에 개입하지 않음)
+  // POSE-CHECK: 스코어 경로에 개입하지 않음 (해석용 메타데이터, try-catch 격리)
   try {
     onMovementPeak();
-    const v=gV();
-    const imgW=v?.videoWidth||640, imgH=v?.videoHeight||480;
-    const pose=computePoseCheck(lm, imgW, imgH);
-    if(pose){
-      pose.rest_captured_at_ms=restCapturedAtMs;
-      pose.peak_at_ms=peakAtMs;
-      logPoseCheck(s.id, 1, pose);
-      if(window.saveWebPoseLog){
-        window.saveWebPoseLog({
-          sessionId: currentSessionId,
-          movement: s.id,
-          pose_yaw: pose.yaw,
-          pose_pitch: pose.pitch,
-          pose_roll: pose.roll,
-          pose_ipd_px: pose.ipd_px,
-          pose_bbox: pose.bbox,
-          pose_center: pose.center,
-          rest_captured_at_ms: restCapturedAtMs,
-          peak_at_ms: peakAtMs,
-          score_total: grade,
-          score_detail: {ratio: ratio, grade: grade},
-          userAgent: navigator.userAgent
-        }).catch(()=>{});
-      }
+    const v = gV();
+    const imgW = v?.videoWidth || 640, imgH = v?.videoHeight || 480;
+    const poseResult = computePoseCheck(lm, imgW, imgH);
+    poseResult.rest_captured_at_ms = restCapturedAtMs;
+    poseResult.peak_at_ms = peakAtMs;
+    logPoseCheck(s.id, 1, poseResult);
+    if (window.saveWebPoseLog) {
+      window.saveWebPoseLog(currentSessionId, s.id, poseResult, {
+        total: grade,
+        detail: { ratio: ratio, grade: grade }
+      }).catch(()=>{});
     }
-  } catch(e){ console.warn('[POSE-CHECK] snapshot failed:', e); }
+  } catch (e) { console.warn('[POSE-CHECK] snapshot failed:', e); }
   showPop(s,grade,ratio);
 }
 
@@ -487,57 +516,66 @@ initFM();
 
 <!-- ── Firebase Web SDK v10 (Phase 1-d-4-web POSE-CHECK) ──────────────────
      익명 인증 + Firestore `web_pose_logs` 쓰기 전용. V3 스코어링 / 기존 로직과 완전 독립.
-     ※ Firebase Console 수동 설정 필요 — docs/FIREBASE_SETUP.md 참조.               -->
+     Firebase Console 설정 / 보안 규칙: docs/FIREBASE_SETUP.md.                      -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-// TODO(Dk): Firebase Console > 프로젝트 설정 > 웹 앱 등록 후 실제 값으로 교체.
-//          docs/FIREBASE_SETUP.md 의 "1. Firebase Console 설정" 참고.
-const firebaseConfig = {
-  apiKey: "TODO_API_KEY",
-  authDomain: "TODO_AUTH_DOMAIN",
-  projectId: "TODO_PROJECT_ID",
-  storageBucket: "TODO_STORAGE_BUCKET",
-  messagingSenderId: "TODO_SENDER_ID",
-  appId: "TODO_APP_ID"
-};
+  const firebaseConfig = {
+    apiKey: "AIzaSyAYuUVb8Dlto2cpduaXJ6_wv-j2wm75WBc",
+    authDomain: "facial-sukje-app.firebaseapp.com",
+    projectId: "facial-sukje-app",
+    storageBucket: "facial-sukje-app.firebasestorage.app",
+    messagingSenderId: "319485390890",
+    appId: "1:319485390890:web:81982f729fc8de1f9bd353",
+    measurementId: "G-SHXYYJP66J"
+  };
 
-let _fbReady=false, _uid=null, _db=null;
-try {
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  _db = getFirestore(app);
-  signInAnonymously(auth).catch(e => console.warn('[POSE-CHECK] auth failed:', e));
-  onAuthStateChanged(auth, user => {
-    if(user){
-      _uid = user.uid;
-      _fbReady = true;
-      console.log('[POSE-CHECK] Firebase ready uid=', _uid.slice(0,8));
-    }
-  });
-} catch(e){
-  console.warn('[POSE-CHECK] Firebase init failed:', e);
-}
+  const db = getFirestore(app);
 
-window.saveWebPoseLog = async function(payload){
-  if(!_fbReady || !_db){
-    console.warn('[POSE-CHECK] Firebase not ready, skipping save');
-    return;
-  }
-  try {
-    await addDoc(collection(_db, 'web_pose_logs'), {
-      uid: _uid,
-      timestamp: serverTimestamp(),
-      platform: 'web',
-      specVersion: 'v1.0',
-      ...payload
+  window._webUser = null;
+  signInAnonymously(auth)
+    .then((userCred) => {
+      window._webUser = userCred.user;
+      console.log('[FIREBASE] Anonymous auth:', userCred.user.uid);
+    })
+    .catch((err) => {
+      console.error('[FIREBASE] Auth failed:', err);
     });
-  } catch(e){
-    console.warn('[POSE-CHECK] Firestore write failed:', e);
-  }
-};
+
+  window.saveWebPoseLog = async function(sessionId, movement, poseResult, scoreResult) {
+    if (!window._webUser) {
+      console.warn('[FIREBASE] No auth, skipping Firestore write');
+      return;
+    }
+    try {
+      const docRef = await addDoc(collection(db, 'web_pose_logs'), {
+        uid: window._webUser.uid,
+        sessionId: sessionId,
+        movement: movement,
+        timestamp: serverTimestamp(),
+        pose_yaw: poseResult.yaw,
+        pose_pitch: poseResult.pitch,
+        pose_roll: poseResult.roll,
+        pose_ipd_px: poseResult.ipd_px,
+        pose_bbox: poseResult.bbox,
+        pose_center: poseResult.center,
+        rest_captured_at_ms: poseResult.rest_captured_at_ms,
+        peak_at_ms: poseResult.peak_at_ms,
+        score_total: (scoreResult && scoreResult.total) || null,
+        score_detail: (scoreResult && scoreResult.detail) || null,
+        userAgent: navigator.userAgent,
+        platform: 'web',
+        specVersion: 'v1.0'
+      });
+      console.log('[FIREBASE] Saved:', docRef.id);
+    } catch (err) {
+      console.error('[FIREBASE] Write failed:', err);
+    }
+  };
 </script>
 </body>
 </html>
